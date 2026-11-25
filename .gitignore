@@ -1,0 +1,53 @@
+# Secretos y entornos
+.env
+.env.*
+!.env.example
+*.key
+*.pem
+client_secret*.json
+google-services.json
+GoogleService-Info.plist
+key.properties
+*.jks
+*.keystore
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+.pytest_cache/
+*.egg-info/
+
+# Pesos y datos pesados (se suben a Drive / Roboflow / RunPod, no al repo)
+*.pt
+*.pth
+*.onnx
+*.engine
+inferencia/pesos/*
+!inferencia/pesos/README.md
+runs/
+datasets/
+entrenamiento/datos/
+
+# Node / editores / SO
+node_modules/
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+*.log
+
+# Configuracion local del IDE / Claude
+.claude/
+inferencia/evidencias/
+
+# Credenciales del ESP32 (Wi-Fi, token)
+hardware/**/secrets.h
+
+# Material de referencia del curso (notebooks del docente): se conserva en disco, no se publica
+keypoints_llantas_yolo_detectron2_v3.ipynb
+weekl_1_detectron2_v2.ipynb
+week_2_servidor_pose_colab_v2.ipynb
+week_2_servidor_pose_runpod.ipynb
+week_3_segmentacion_vehiculos_yolo_detectron2_simplificado.ipynb

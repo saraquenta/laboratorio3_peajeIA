@@ -1,0 +1,9 @@
+# Solo para probar en una PC sin GPU (modo mock + pruebas unitarias). No instala torch.
+fastapi==0.165.0
+uvicorn[standard]==0.54.0
+python-multipart==0.0.34
+opencv-python-headless==4.14.0.94
+numpy==2.2.6
+httpx==0.28.1
+pytest==9.2.0
+requests==2.34.2

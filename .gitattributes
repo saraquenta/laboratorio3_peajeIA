@@ -1,0 +1,4 @@
+# Scripts que se ejecutan en Linux (RunPod/Colab/Docker) deben conservar LF
+*.sh text eol=lf
+Dockerfile text eol=lf
+*.py text eol=lf

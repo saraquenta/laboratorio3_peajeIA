@@ -1,0 +1,333 @@
+openapi: 3.0.3
+info:
+  title: Peaje Inteligente - API REST v1
+  version: 1.0.0
+  description: |
+    API del Sistema Inteligente de Control de Peaje (IAM-811, Laboratorio Final de Hito).
+
+    **Autenticación:** todas las rutas requieren `Authorization: Bearer <token>` excepto `POST /auth/google`.
+    El token se obtiene enviando el `id_token` de Google Sign-In; el correo debe estar en la lista blanca
+    (`usuarios.email_google` con `activo = true`). Sin autorización responde `403 Acceso denegado`.
+
+    Importable en Postman (*Import → OpenAPI*) o visualizable en <https://editor.swagger.io>.
+servers:
+  - url: https://peaje.tu-dominio.com/api/v1
+    description: Producción (subdominio HTTPS)
+security:
+  - bearer: []
+tags:
+  - name: Autenticación
+  - name: Pasos
+  - name: Placas
+  - name: Casetas
+  - name: Agente
+  - name: Hardware
+paths:
+  /auth/google:
+    post:
+      tags: [Autenticación]
+      summary: Login con Google OAuth 2.0 (única ruta pública)
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                id_token: { type: string, description: "ID token de Google Sign-In (recomendado)" }
+                access_token: { type: string, description: "Alternativa: access token de Google" }
+                dispositivo: { type: string, example: app-movil }
+      responses:
+        '200':
+          description: Token emitido
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  token: { type: string, example: "3|xZq..." }
+                  tipo: { type: string, example: Bearer }
+                  usuario: { $ref: '#/components/schemas/Usuario' }
+        '401': { description: Token de Google inválido, expirado o emitido para otro cliente (aud) }
+        '403': { description: "Acceso denegado: correo fuera de la lista blanca o desactivado" }
+        '422': { description: Falta id_token / access_token }
+  /auth/yo:
+    get:
+      tags: [Autenticación]
+      summary: Usuario autenticado
+      responses:
+        '200': { description: OK }
+        '401': { $ref: '#/components/responses/NoAutenticado' }
+  /pasos/frame:
+    post:
+      tags: [Pasos]
+      summary: Procesa un frame de la caseta (2–5 fps desde la app móvil)
+      description: |
+        Envía la imagen al endpoint de inferencia (`INFERENCE_URL`: M1 placa+OCR, M2 categoría, M3 ejes y pasajeros),
+        normaliza la placa, calcula la tarifa y registra el paso **solo** si la placa es legible y no se registró la misma
+        placa en la misma caseta en los últimos `PEAJE_VENTANA_DUPLICADOS` segundos. Si la placa no está registrada,
+        está inactiva o no tiene saldo, crea una alerta. Notifica al panel en tiempo real y al hardware.
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [imagen, caseta_id]
+              properties:
+                imagen: { type: string, format: binary }
+                caseta_id: { type: integer, example: 1 }
+                registrar: { type: boolean, default: true, description: "false = solo detectar" }
+                manual: { type: boolean, default: false, description: "captura manual del operador: si la placa es ilegible o el vehiculo no tiene placa, igual registra el paso con alerta placa_ilegible" }
+      responses:
+        '200':
+          description: Resultado del frame
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ResultadoFrame' }
+        '401': { $ref: '#/components/responses/NoAutenticado' }
+        '422': { description: Validación (imagen, caseta inexistente o inactiva) }
+        '503': { description: El servicio de inferencia no responde (motivo = inferencia_no_disponible) }
+  /placas/consultar:
+    post:
+      tags: [Placas]
+      summary: Consulta una placa por texto (4 estados)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { type: object, required: [placa], properties: { placa: { type: string, example: 1234-abc } } }
+      responses:
+        '200':
+          description: Estado de la placa
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ConsultaPlaca' }
+  /placas/consultar-imagen:
+    post:
+      tags: [Placas]
+      summary: Consulta una placa por foto (OCR + 4 estados)
+      description: Si la imagen no tiene una placa legible devuelve `estado = null`, `solicitar_imagen = true` y pide otra foto.
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema: { type: object, required: [imagen], properties: { imagen: { type: string, format: binary } } }
+      responses:
+        '200':
+          description: Estado + detección
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ConsultaPlaca'
+                  - type: object
+                    properties:
+                      mensaje: { type: string }
+                      solicitar_imagen: { type: boolean }
+  /placas/{placa}/historial:
+    get:
+      tags: [Placas]
+      summary: Historial de pasos de una placa
+      parameters:
+        - { name: placa, in: path, required: true, schema: { type: string }, example: 1234ABC }
+        - { name: page, in: query, schema: { type: integer } }
+        - { name: por_pagina, in: query, schema: { type: integer, default: 20, maximum: 100 } }
+      responses:
+        '200':
+          description: Historial paginado
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  placa: { type: string }
+                  registrada: { type: boolean }
+                  vehiculo: { $ref: '#/components/schemas/Vehiculo' }
+                  total_pasos: { type: integer }
+                  total_pagado: { type: number }
+                  pasos: { type: array, items: { $ref: '#/components/schemas/Paso' } }
+                  sugerencias: { type: array, items: { type: string } }
+  /casetas:
+    get:
+      tags: [Casetas]
+      summary: Casetas activas (para la app móvil)
+      responses: { '200': { description: OK } }
+  /casetas/{id}/resumen:
+    get:
+      tags: [Casetas]
+      summary: Resumen diario de una caseta
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: integer }, example: 1 }
+        - { name: fecha, in: query, schema: { type: string, format: date }, description: "Por defecto hoy" }
+      responses:
+        '200':
+          description: Resumen
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  caseta: { type: object }
+                  fecha: { type: string, format: date }
+                  pasos: { type: integer }
+                  cobrados: { type: integer }
+                  con_alerta: { type: integer }
+                  recaudacion: { type: number }
+                  pasajeros: { type: integer }
+                  por_categoria: { type: array, items: { type: object, properties: { categoria: { type: string }, pasos: { type: integer }, monto: { type: number } } } }
+                  alertas_pendientes: { type: integer }
+                  ultimos_pasos: { type: array, items: { $ref: '#/components/schemas/Paso' } }
+        '404': { description: Caseta inexistente }
+  /estado:
+    get:
+      tags: [Casetas]
+      summary: Indica si INFERENCE_URL responde
+      responses: { '200': { description: "{ inferencia: { en_linea, url, latencia_ms, detalle } }" } }
+  /agente/chat:
+    post:
+      tags: [Agente]
+      summary: Agente conversacional (solo datos reales de la BD)
+      description: |
+        Acepta texto y/o una imagen. Normaliza placas y corrige errores típicos de OCR (O↔0, I↔1, B↔8, S↔5).
+        Para consultas de placa `estado` es exactamente uno de: `Registrada y con paso`, `Registrada sin paso`,
+        `Identificada no registrada`, `No existe`. Incluye `sugerencias` ("¿Quisiste decir…?").
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                mensaje: { type: string, example: "¿La placa 1234-ABC pasó hoy?" }
+                imagen: { type: string, format: binary }
+          application/json:
+            schema: { type: object, properties: { mensaje: { type: string } } }
+      responses:
+        '200':
+          description: Respuesta del agente
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  respuesta: { type: string, example: "**Registrada y con paso** — La placa 1234ABC pertenece a ..." }
+                  estado: { $ref: '#/components/schemas/Estado' }
+                  datos: { type: object }
+                  sugerencias: { type: array, items: { type: string } }
+                  fuente: { type: string, enum: [plantilla, "llm:gemini", "llm:claude"] }
+        '422': { description: Sin mensaje ni imagen }
+  /hardware/ultimo-evento:
+    get:
+      tags: [Hardware]
+      summary: Ultimo evento para el ESP32 (LED azul/verde/rojo + buzzer)
+      security: [ { hardware: [] } ]
+      parameters:
+        - { name: caseta_id, in: query, schema: { type: integer } }
+        - { name: rssi, in: query, schema: { type: integer }, description: "intensidad Wi-Fi del ESP32 (se muestra en Estado)" }
+      responses:
+        '200':
+          description: Evento
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id: { type: integer }
+                  tipo_senal: { type: string, enum: [idle, inferencia, ok, alerta] }
+                  caseta_id: { type: integer }
+                  placa: { type: string, nullable: true }
+                  monto: { type: number }
+                  texto: { type: string }
+                  timestamp: { type: string, format: date-time }
+        '401': { description: Token de hardware invalido }
+  /hardware/estado:
+    get:
+      tags: [Hardware]
+      summary: Último evento para el semáforo (ESP32/Arduino)
+      security: [ { hardware: [] } ]
+      parameters:
+        - { name: caseta_id, in: query, schema: { type: integer } }
+      responses:
+        '200':
+          description: Señal
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  evento_id: { type: integer }
+                  led: { type: string, enum: [verde, rojo, apagado] }
+                  buzzer: { type: boolean }
+                  placa: { type: string }
+                  texto: { type: string }
+        '401': { description: Token de hardware inválido }
+components:
+  securitySchemes:
+    bearer: { type: http, scheme: bearer, description: "Token Sanctum obtenido en /auth/google" }
+    hardware: { type: apiKey, in: header, name: X-Hardware-Token }
+  responses:
+    NoAutenticado: { description: "Falta token Bearer o es inválido" }
+  schemas:
+    Estado:
+      type: string
+      nullable: true
+      enum: [Registrada y con paso, Registrada sin paso, Identificada no registrada, No existe]
+    Usuario:
+      type: object
+      properties: { id: { type: integer }, nombre: { type: string }, email: { type: string }, rol: { type: string, enum: [administrador, operador] }, avatar_url: { type: string } }
+    Vehiculo:
+      type: object
+      nullable: true
+      properties: { placa: { type: string }, propietario: { type: string }, categoria: { type: string, enum: [moto, auto, minibus, camion, bus] }, ejes: { type: integer }, saldo: { type: number }, activo: { type: boolean } }
+    Paso:
+      type: object
+      properties:
+        id: { type: integer }
+        placa: { type: string }
+        placa_leida: { type: string }
+        confianza_ocr: { type: number }
+        categoria: { type: string }
+        ejes: { type: integer }
+        pasajeros: { type: integer }
+        monto: { type: number }
+        estado: { type: string, enum: [cobrado, alerta] }
+        caseta: { type: string }
+        propietario: { type: string, nullable: true }
+        registrado: { type: boolean }
+        imagen_url: { type: string }
+        latencia_ms: { type: number }
+        fecha: { type: string, format: date-time }
+    Inferencia:
+      type: object
+      description: JSON del endpoint unificado de inferencia (RunPod/Colab)
+      properties:
+        placa: { type: string, example: "1234-ABC" }
+        placa_normalizada: { type: string, example: "1234ABC" }
+        confianza_ocr: { type: number, example: 0.93 }
+        categoria: { type: string, enum: [moto, auto, minibus, camion, bus] }
+        ejes: { type: integer, example: 3 }
+        pasajeros: { type: integer, example: 2 }
+        latencia_ms: { type: number, example: 142.7 }
+    ResultadoFrame:
+      type: object
+      properties:
+        registrado: { type: boolean }
+        motivo: { type: string, enum: [cobrado, no_registrada, saldo_insuficiente, vehiculo_inactivo, duplicado, placa_ilegible, sin_vehiculo, solo_consulta, inferencia_no_disponible], description: "placa_ilegible con registrado=true solo en captura manual" }
+        deteccion: { $ref: '#/components/schemas/Inferencia' }
+        tarifa: { type: number, nullable: true }
+        paso: { $ref: '#/components/schemas/Paso' }
+        alerta: { type: object, nullable: true }
+        vehiculo: { $ref: '#/components/schemas/Vehiculo' }
+        senal: { type: object, properties: { led: { type: string }, buzzer: { type: boolean }, texto: { type: string } } }
+    ConsultaPlaca:
+      type: object
+      properties:
+        placa: { type: string }
+        placa_valida: { type: boolean }
+        estado: { $ref: '#/components/schemas/Estado' }
+        vehiculo: { $ref: '#/components/schemas/Vehiculo' }
+        ultimo_paso: { type: object, nullable: true, properties: { fecha: { type: string }, caseta: { type: string }, categoria: { type: string }, monto: { type: number } } }
+        total_pasos: { type: integer }
+        posible_evasion: { type: boolean }
+        sugerencias: { type: array, items: { type: string } }

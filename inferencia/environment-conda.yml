@@ -1,0 +1,18 @@
+# Entorno CONDA del servidor de inferencia (Linux con GPU NVIDIA; RunPod).
+#   conda env create -f environment-conda.yml
+#   conda activate peaje-conda
+#   python diagnostico_entorno.py --etiqueta runpod-conda
+# (setup_runpod.sh conda lo hace automaticamente)
+name: peaje-conda
+channels:
+  - pytorch
+  - nvidia
+  - conda-forge
+dependencies:
+  - python=3.11
+  - pip=25.*
+  - pip:
+      - --extra-index-url https://download.pytorch.org/whl/cu124
+      - torch==2.6.0
+      - torchvision==0.21.0
+      - -r requirements.txt

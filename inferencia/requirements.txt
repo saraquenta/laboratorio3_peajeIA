@@ -1,0 +1,17 @@
+# Servidor de inferencia - versiones fijadas.
+# torch / torchvision NO se fijan aqui: en RunPod y Colab ya vienen instalados con la version de CUDA
+# correcta de la plantilla (reinstalarlos descarga ~2.5 GB y puede romper CUDA). Ver environment.yml.
+fastapi==0.165.0
+uvicorn[standard]==0.54.0
+python-multipart==0.0.34
+ultralytics==8.4.218
+easyocr==1.7.2
+# ultralytics exige "opencv-python" y easyocr "opencv-python-headless": se fijan a la MISMA version
+# para que no se instalen dos OpenCV distintos que se pisan el modulo cv2.
+opencv-python==4.14.0.94
+opencv-python-headless==4.14.0.94
+numpy==2.2.6
+pillow==13.0.0
+requests==2.34.2
+# Codificador de texto de YOLOE (prompts de texto). Es el mismo que instalan los notebooks del curso.
+clip @ git+https://github.com/ultralytics/CLIP.git

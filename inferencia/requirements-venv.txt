@@ -1,0 +1,11 @@
+# Entorno VENV (pip) del servidor de inferencia en RunPod / cualquier Linux con GPU NVIDIA.
+#   python3.11 -m venv /workspace/envs/peaje-venv
+#   source /workspace/envs/peaje-venv/bin/activate
+#   pip install -r requirements-venv.txt
+#   python diagnostico_entorno.py --etiqueta runpod-venv
+# (setup_runpod.sh venv lo hace automaticamente)
+# A diferencia de requirements.txt, aqui SI se fija torch (CUDA 12.4) porque el venv no hereda el torch de la plantilla.
+--extra-index-url https://download.pytorch.org/whl/cu124
+torch==2.6.0
+torchvision==0.21.0
+-r requirements.txt

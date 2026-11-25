@@ -1,0 +1,79 @@
+# Blueprint de Render (https://render.com): panel web Laravel + PostgreSQL en plan gratuito.
+# Render -> New -> Blueprint -> conecta este repositorio. Completa las variables marcadas "sync: false".
+databases:
+  - name: peaje-ia-db
+    plan: free
+    databaseName: peaje
+    user: peaje
+
+services:
+  - type: web
+    name: peaje-ia
+    runtime: docker
+    plan: free
+    dockerfilePath: ./web/Dockerfile
+    dockerContext: ./web
+    healthCheckPath: /up
+    envVars:
+      - key: APP_NAME
+        value: Peaje Inteligente
+      - key: APP_ENV
+        value: production
+      - key: APP_DEBUG
+        value: "false"
+      - key: APP_TIMEZONE
+        value: America/La_Paz
+      - key: APP_LOCALE
+        value: es
+      - key: APP_KEY
+        sync: false
+      - key: APP_URL
+        sync: false
+      - key: DB_CONNECTION
+        value: pgsql
+      - key: DB_URL
+        fromDatabase:
+          name: peaje-ia-db
+          property: connectionString
+      - key: SESSION_DRIVER
+        value: database
+      - key: SESSION_SECURE_COOKIE
+        value: "true"
+      - key: CACHE_STORE
+        value: database
+      - key: QUEUE_CONNECTION
+        value: sync
+      - key: LOG_CHANNEL
+        value: stderr
+      - key: FILESYSTEM_DISK
+        value: public
+      - key: ADMIN_EMAIL
+        sync: false
+      - key: GOOGLE_CLIENT_ID
+        sync: false
+      - key: GOOGLE_CLIENT_SECRET
+        sync: false
+      - key: GOOGLE_CLIENT_IDS
+        sync: false
+      - key: GOOGLE_REDIRECT_URI
+        value: /auth/google/callback
+      - key: INFERENCE_URL
+        sync: false
+      - key: INFERENCE_TOKEN
+        sync: false
+      - key: HARDWARE_TOKEN
+        sync: false
+      - key: PUSHER_APP_ID
+        sync: false
+      - key: PUSHER_APP_KEY
+        sync: false
+      - key: PUSHER_APP_SECRET
+        sync: false
+      - key: PUSHER_APP_CLUSTER
+        value: sa1
+      - key: AGENTE_PROVEEDOR
+        value: gemini
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: GEMINI_MODEL
+        value: gemini-2.5-flash

@@ -1,0 +1,16 @@
+# Entorno MAMBA del servidor de inferencia (mismo contenido, resuelto con mamba: mas rapido).
+#   mamba env create -f environment-mamba.yml
+#   mamba activate peaje-mamba        (o: conda activate peaje-mamba)
+#   python diagnostico_entorno.py --etiqueta runpod-mamba
+# (setup_runpod.sh mamba lo hace automaticamente)
+name: peaje-mamba
+channels:
+  - conda-forge
+dependencies:
+  - python=3.11
+  - pip=25.*
+  - pip:
+      - --extra-index-url https://download.pytorch.org/whl/cu124
+      - torch==2.6.0
+      - torchvision==0.21.0
+      - -r requirements.txt
