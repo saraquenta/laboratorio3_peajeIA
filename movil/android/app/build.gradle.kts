@@ -5,6 +5,12 @@ plugins {
 }
 
 android {
+    // El lint de release (lintVital) de los plugins camera/image_picker falla con JDK 17 (usa List.removeLast de Java 21).
+    // No afecta al APK: solo se omite esa revision automatica.
+    lint {
+        checkReleaseBuilds = false
+        abortOnError = false
+    }
     namespace = "bo.edu.unifranz.peaje_movil"
     compileSdk = flutter.compileSdkVersion
     ndkVersion = flutter.ndkVersion
