@@ -46,6 +46,20 @@ class AdminController extends Controller
         return view('admin.usuarios', ['usuarios' => Usuario::orderBy('rol')->orderBy('email_google')->get()]);
     }
 
+    /**
+     * Genera un token Bearer (Sanctum) de 30 dias para que un usuario de la lista blanca entre a la app movil
+     * pegandolo en "Ingresar con token" (pruebas sin la pantalla de Google). Se muestra UNA sola vez.
+     */
+    public function tokenApp(Usuario $usuario)
+    {
+        if (! $usuario->activo) {
+            return back()->with('error', 'El usuario está inactivo: actívalo antes de generar un token.');
+        }
+        $token = $usuario->createToken('app-movil-token-manual', ['*'], now()->addDays(30))->plainTextToken;
+
+        return back()->with('token_app', ['email' => $usuario->email_google, 'token' => $token]);
+    }
+
     public function guardarUsuario(Request $request, ?Usuario $usuario = null)
     {
         $request->merge(['email_google' => mb_strtolower(trim((string) $request->input('email_google')))]);

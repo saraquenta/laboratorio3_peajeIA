@@ -54,6 +54,42 @@ class _LoginPantallaState extends State<LoginPantalla> {
     }
   }
 
+  Future<void> _entrarConToken() async {
+    final c = TextEditingController();
+    final token = await showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Ingresar con token de acceso'),
+        content: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+          const Text('Un administrador lo genera en la web: Administración → Lista blanca → "Token app".'),
+          const SizedBox(height: 12),
+          TextField(controller: c, decoration: const InputDecoration(hintText: '12|AbCd…', border: OutlineInputBorder())),
+        ]),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancelar')),
+          FilledButton(onPressed: () => Navigator.pop(ctx, c.text), child: const Text('Entrar')),
+        ],
+      ),
+    );
+    if (token == null || token.trim().isEmpty) return;
+    setState(() {
+      _cargando = true;
+      _error = null;
+    });
+    try {
+      await Api.instancia.loginConToken(token);
+      widget.alEntrar();
+    } on ApiException catch (e) {
+      setState(() => _error = e.status == 401
+          ? 'Token inválido o caducado: genera uno nuevo en la web.'
+          : (e.status == 403 ? 'Acceso denegado: ${e.mensaje}' : e.mensaje));
+    } catch (e) {
+      setState(() => _error = 'No se pudo conectar con ${Api.instancia.baseUrl}: $e');
+    } finally {
+      if (mounted) setState(() => _cargando = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final t = Theme.of(context);
@@ -79,7 +115,13 @@ class _LoginPantallaState extends State<LoginPantalla> {
                 const SizedBox(height: 16),
                 Text(_error!, textAlign: TextAlign.center, style: TextStyle(color: t.colorScheme.error)),
               ],
-              const SizedBox(height: 24),
+              const SizedBox(height: 8),
+              TextButton.icon(
+                onPressed: _cargando ? null : _entrarConToken,
+                icon: const Icon(Icons.key, size: 18),
+                label: const Text('Ingresar con token de acceso'),
+              ),
+              const SizedBox(height: 16),
               Text('Servidor: ${Api.instancia.baseUrl}', style: t.textTheme.bodySmall),
               TextButton(
                 onPressed: () async {

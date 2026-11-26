@@ -72,6 +72,20 @@ class Api {
     return j;
   }
 
+  /// Acceso alternativo para pruebas: token generado por un administrador en la web
+  /// (Administracion -> Lista blanca -> "Token app"). Se valida contra GET /auth/yo.
+  Future<Map<String, dynamic>> loginConToken(String tokenPegado) async {
+    final candidato = tokenPegado.trim().replaceFirst(RegExp(r'^Bearer\s+', caseSensitive: false), '');
+    final r = await _http.get(_uri('auth/yo'), headers: {'Accept': 'application/json', 'Authorization': 'Bearer $candidato'});
+    final j = _procesar(r);
+    token = candidato;
+    usuario = j['usuario'] as Map<String, dynamic>;
+    final p = await SharedPreferences.getInstance();
+    await p.setString('token', token!);
+    await p.setString('usuario', jsonEncode(usuario));
+    return j;
+  }
+
   Future<void> salir() async {
     try {
       await _http.post(_uri('auth/salir'), headers: _cabeceras).timeout(const Duration(seconds: 5));

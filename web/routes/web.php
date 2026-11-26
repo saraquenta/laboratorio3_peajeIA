@@ -52,6 +52,8 @@ Route::middleware(['auth', 'activo'])->group(function () {
         Route::get('/admin/usuarios', [AdminController::class, 'usuarios'])->name('admin.usuarios');
         Route::post('/admin/usuarios', [AdminController::class, 'guardarUsuario'])->name('admin.usuarios.store');
         Route::put('/admin/usuarios/{usuario}', [AdminController::class, 'guardarUsuario'])->name('admin.usuarios.update');
+        // Token de acceso para la app movil (pruebas sin la pantalla de Google). Caduca a los 30 dias.
+        Route::post('/admin/usuarios/{usuario}/token-app', [AdminController::class, 'tokenApp'])->name('admin.usuarios.token');
         Route::post('/estado/inferencia', [EstadoController::class, 'guardarInferencia'])->name('estado.inferencia');
     });
 });
